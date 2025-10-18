@@ -112,30 +112,36 @@ static void grabber_init_drawing(Grabber *self)
 
 static Status fetch_window_title(Display *dpy, Window w, char **out_window_title)
 {
-	int status;
-	XTextProperty text_prop;
-	char **list;
-	int num;
+    XTextProperty text_prop;
+    char **list = NULL;
+    int num = 0;
+    Atom net_wm_name = XInternAtom(dpy, "_NET_WM_NAME", False);
 
-	status = XGetWMName(dpy, w, &text_prop);
-	if (!status || !text_prop.value || !text_prop.nitems)
-	{
-		*out_window_title = "";
-	}
-	status = Xutf8TextPropertyToTextList(dpy, &text_prop, &list, &num);
+    /* Try _NET_WM_NAME (UTF8) first */
+    if (XGetTextProperty(dpy, w, &text_prop, net_wm_name) && text_prop.value) {
+        if (Xutf8TextPropertyToTextList(dpy, &text_prop, &list, &num) >= Success && num > 0 && list && *list) {
+            *out_window_title = strdup(*list);
+            XFree(text_prop.value);
+            XFreeStringList(list);
+            return 1;
+        }
+        XFree(text_prop.value);
+    }
 
-	if (status < Success || !num || !*list)
-	{
-		*out_window_title = "";
-	}
-	else
-	{
-		*out_window_title = (char *)strdup(*list);
-	}
-	XFree(text_prop.value);
-	XFreeStringList(list);
+    /* Fallback to WM_NAME */
+    if (XGetWMName(dpy, w, &text_prop) && text_prop.value) {
+        if (Xutf8TextPropertyToTextList(dpy, &text_prop, &list, &num) >= Success && num > 0 && list && *list) {
+            *out_window_title = strdup(*list);
+            XFree(text_prop.value);
+            XFreeStringList(list);
+            return 1;
+        }
+        XFree(text_prop.value);
+    }
 
-	return 1;
+    /* nothing found */
+    *out_window_title = strdup("");
+    return 1;
 }
 
 /*
@@ -143,63 +149,91 @@ static Status fetch_window_title(Display *dpy, Window w, char **out_window_title
  */
 static ActiveWindowInfo *get_active_window_info(Display *dpy, Window win)
 {
+    int ret, val;
 
-	int ret, val;
+    char *win_title = NULL;
+    ret = fetch_window_title(dpy, win, &win_title);
 
-	char *win_title;
-	ret = fetch_window_title(dpy, win, &win_title);
+    ActiveWindowInfo *ans = malloc(sizeof(ActiveWindowInfo));
+    bzero(ans, sizeof(ActiveWindowInfo));
 
-	ActiveWindowInfo *ans = malloc(sizeof(ActiveWindowInfo));
-	bzero(ans, sizeof(ActiveWindowInfo));
+    char *win_class = NULL;
+    XClassHint class_hints;
 
-	char *win_class = NULL;
+    /* Try class on this window */
+    if (XGetClassHint(dpy, win, &class_hints)) {
+        if (class_hints.res_class)
+            win_class = class_hints.res_class;
+    }
 
-	XClassHint class_hints;
+    /* If title or class are empty, try the children (common when window is reparented) */
+    if ((!win_title || win_title[0] == '\0') || (!win_class || win_class[0] == '\0')) {
+        Window root_return, parent_return, *children = NULL;
+        unsigned int nchildren = 0;
+        if (XQueryTree(dpy, win, &root_return, &parent_return, &children, &nchildren)) {
+            for (unsigned int i = 0; i < nchildren; ++i) {
+                /* try to get a better title */
+                if ((!win_title || win_title[0] == '\0')) {
+                    char *child_title = NULL;
+                    if (fetch_window_title(dpy, children[i], &child_title) && child_title && child_title[0] != '\0') {
+                        free(win_title);
+                        win_title = child_title;
+                    } else {
+                        free(child_title);
+                    }
+                }
+                /* try to get a better class */
+                if ((!win_class || win_class[0] == '\0')) {
+                    XClassHint ch;
+                    if (XGetClassHint(dpy, children[i], &ch)) {
+                        if (ch.res_class) {
+                            if (win_class && win_class[0] != '\0') {
+                                /* keep existing */
+                                XFree(ch.res_class);
+                                XFree(ch.res_name);
+                            } else {
+                                win_class = ch.res_class;
+                                XFree(ch.res_name);
+                            }
+                        }
+                    }
+                }
+                if ((win_title && win_title[0] != '\0') && (win_class && win_class[0] != '\0'))
+                    break;
+            }
+            if (children)
+                XFree(children);
+        }
+    }
 
-	int result = XGetClassHint(dpy, win, &class_hints);
+    /* Normalize to non-NULL strings */
+    if (win_class) {
+        ans->class = win_class;
+    } else {
+        ans->class = strdup("");
+    }
 
-	if (result)
-	{
+    if (win_title) {
+        ans->title = win_title;
+    } else {
+        ans->title = strdup("");
+    }
 
-		if (class_hints.res_class != NULL)
-			win_class = class_hints.res_class;
-
-		if (win_class == NULL)
-		{
-			win_class = "";
-		}
-	}
-
-	if (win_class)
-	{
-		ans->class = win_class;
-	}
-	else
-	{
-		ans->class = "";
-	}
-
-	if (win_title)
-	{
-		ans->title = win_title;
-	}
-	else
-	{
-		ans->title = "";
-	}
-
-	return ans;
+    return ans;
 }
 
 static Window get_parent_window(Display *dpy, Window w)
 {
-	Window root_return, parent_return, *child_return;
-	unsigned int nchildren_return;
-	int ret;
-	ret = XQueryTree(dpy, w, &root_return, &parent_return, &child_return,
-					 &nchildren_return);
+    Window root_return, parent_return, *child_return;
+    unsigned int nchildren_return;
+    int ret;
+    ret = XQueryTree(dpy, w, &root_return, &parent_return, &child_return,
+                     &nchildren_return);
 
-	return parent_return;
+    if (child_return)
+        XFree(child_return);
+
+    return parent_return;
 }
 
 void grabbing_xinput_grab_start(Grabber *self)
@@ -308,22 +342,76 @@ static void mouse_click(Display *display, int button, int x, int y)
 static Window get_window_under_pointer(Display *dpy)
 {
 
-	Window root_return, child_return;
-	int root_x_return, root_y_return;
-	int win_x_return, win_y_return;
-	unsigned int mask_return;
-	XQueryPointer(dpy, DefaultRootWindow(dpy), &root_return, &child_return,
-				  &root_x_return, &root_y_return, &win_x_return, &win_y_return,
-				  &mask_return);
+    Window root_return, child_return;
+    int root_x_return, root_y_return;
+    int win_x_return, win_y_return;
+    unsigned int mask_return;
+    if (!XQueryPointer(dpy, DefaultRootWindow(dpy), &root_return, &child_return,
+                  &root_x_return, &root_y_return, &win_x_return, &win_y_return,
+                  &mask_return)) {
+        return None;
+    }
 
-	Window w = child_return;
-	Window parent_return;
-	Window *children_return;
-	unsigned int nchildren_return;
-	XQueryTree(dpy, w, &root_return, &parent_return, &children_return,
-			   &nchildren_return);
+    if (child_return == None) {
+        /* pointer is on root */
+        return DefaultRootWindow(dpy);
+    }
 
-	return children_return[nchildren_return - 1];
+    /* climb parents to the top-level window (parent == root) */
+    Window w = child_return;
+    Window parent = get_parent_window(dpy, w);
+    while (parent != None && parent != DefaultRootWindow(dpy)) {
+        w = parent;
+        parent = get_parent_window(dpy, w);
+    }
+
+    /* If the top-level window itself is not a client (no WM_STATE), try its children
+       and return the first child that looks like the real client (has WM_STATE). */
+    Atom wm_state = XInternAtom(dpy, "WM_STATE", False);
+    Atom net_wm_name = XInternAtom(dpy, "_NET_WM_NAME", False);
+
+    Atom actual_type;
+    int actual_format;
+    unsigned long nitems, bytes_after;
+    unsigned char *prop = NULL;
+
+    if (XGetWindowProperty(dpy, w, wm_state, 0, 0, False, AnyPropertyType,
+                           &actual_type, &actual_format, &nitems, &bytes_after,
+                           &prop) == Success && prop) {
+        XFree(prop);
+        return w; /* top-level has WM_STATE, use it */
+    }
+    if (prop) { XFree(prop); prop = NULL; }
+
+    /* query children and try to find a child with WM_STATE or _NET_WM_NAME */
+    Window rootr, parentr, *children = NULL;
+    unsigned int nchildren = 0;
+    if (XQueryTree(dpy, w, &rootr, &parentr, &children, &nchildren)) {
+        for (unsigned int i = 0; i < nchildren; ++i) {
+            Window c = children[i];
+            if (XGetWindowProperty(dpy, c, wm_state, 0, 0, False, AnyPropertyType,
+                                   &actual_type, &actual_format, &nitems, &bytes_after,
+                                   &prop) == Success && prop) {
+                XFree(prop);
+                XFree(children);
+                return c;
+            }
+            if (prop) { XFree(prop); prop = NULL; }
+
+            /* also try _NET_WM_NAME as a heuristic */
+            if (XGetWindowProperty(dpy, c, net_wm_name, 0, 0, False, AnyPropertyType,
+                                   &actual_type, &actual_format, &nitems, &bytes_after,
+                                   &prop) == Success && prop) {
+                XFree(prop);
+                XFree(children);
+                return c;
+            }
+            if (prop) { XFree(prop); prop = NULL; }
+        }
+        if (children) XFree(children);
+    }
+
+    return w;
 }
 
 static Window get_focused_window(Display *dpy)
@@ -682,7 +770,8 @@ void grabbing_end_movement(Grabber *self, int new_x, int new_y,
 
 	grabbing_xinput_grab_stop(self);
 
-	Window focused_window = get_focused_window(self->dpy);
+	// Window focused_window = get_focused_window(self->dpy);
+	Window focused_window = get_window_under_pointer(self->dpy);
 	Window target_window = focused_window;
 
 	Capture *grab = NULL;
