@@ -21,6 +21,8 @@
 
     -->
 
+    <movement name="9" value="9" />
+    <movement name="1" value="1" />
     <movement name="Up" value="U" />
     <movement name="Down" value="D" />
     <movement name="Left" value="L" />
@@ -76,135 +78,22 @@
     Context: Terminal windows.
     -->
 
-    <context name="Terminal windows" windowclass=".*(Term|term).*" windowtitle=".*">
-
-        <gesture name="Open new tab (Ctrl+Shift+T)" movement="T">
-            <do action="keypress" value="Control_L+Shift_L+T" />
-        </gesture>
-
-        <gesture name="Open new window (Ctrl+Shift+N)" movement="N">
-            <do action="keypress" value="Control_L+Shift_L+N" />
-        </gesture>
-
-        <gesture name="Copy (Ctrl+Shift+C)" movement="C">
-            <do action="keypress" value="Control_L+Shift_L+C" />
-        </gesture>
-
-        <gesture name="Paste (Ctrl+Shift+V)" movement="V">
-            <do action="keypress" value="Control_L+Shift_L+V" />
-        </gesture>
-
-        <gesture name="Close current tab (Ctrl+Shift+W)" movement="RightDown">
-            <do action="keypress" value="Control_L+Shift_L+W" />
-        </gesture>
-
-    </context>
-
 
     <context name="All applications" windowclass=".*" windowtitle=".*">
 
       <!-- Window control -->
 
-        <gesture name="Close window (Alt+F4)" movement="DownRight">
-            <do action="keypress" value="Alt_L+F4" />
-        </gesture>
 
-        <gesture name="Maximize window" movement="Up">
+        <gesture name="Maximize window" movement="9">
             <do action="toggle-maximized"/> <!-- you can use the "maximize" action too -->
         </gesture>
 
-        <gesture name="Iconify window" movement="Down">
+        <gesture name="Iconify window" movement="1">
             <do action="iconify" />
         </gesture>
 
-      <!-- Generic actions -->
+   
 
-        <gesture name="Previous page (Alt+Left)" movement="Left">
-            <do action="keypress" value="Alt_L+Left" />
-        </gesture>
-
-        <gesture name="Next page (Alt+Right)" movement="Right">
-            <do action="keypress" value="Alt_L+Right" />
-        </gesture>
-
-        <gesture name="Copy (Ctrl+C)" movement="C">
-            <do action="keypress" value="Control_L+C" />
-        </gesture>
-
-        <gesture name="Paste (Ctrl+V)" movement="V">
-            <do action="keypress" value="Control_L+V" />
-        </gesture>
-
-        <gesture name="New (Ctrl+N)" movement="N">
-            <do action="keypress" value="Control_L+N" />
-        </gesture>
-
-        <gesture name="Open (Ctrl+O)" movement="O">
-            <do action="keypress" value="Control_L+O" />
-        </gesture>
-
-        <gesture name="Print (Ctrl+P)" movement="P">
-            <do action="keypress" value="Control_L+P" />
-        </gesture>
-
-        <gesture name="Save (Ctrl+S)" movement="S">
-            <do action="keypress" value="Control_L+S" />
-        </gesture>
-
-        <gesture name="Escape" movement="Up">
-            <do action="keypress" value="Escape" />
-        </gesture>
-
-        <gesture name="New tab (Ctrl+T)" movement="T">
-            <do action="keypress" value="Control_L+T" />
-        </gesture>
-
-        <gesture name="Close tab (Ctrl+W)" movement="RightDown">
-            <do action="keypress" value="Control_L+W" />
-        </gesture>
-
-      <!-- Custom actions -->
-
-        <gesture name="Run default browser" movement="W">
-            <do action="exec" value="x-www-browser" />
-        </gesture>
-
-        <gesture name="Run gedit" movement="G">
-            <do action="exec" value="gedit" />
-        </gesture>
-
-        <!--gesture name="Zoom in" movement="NorthEast" fingers="4">
-            <do action="keypress" value="Control_L+plus" />
-        </gesture>
-
-        <gesture name="Zoom out" movement="SouthWest" fingers="4">
-            <do action="keypress" value="Control_L+minus" />
-        </gesture-->
-
-        <gesture name="Previous Tab" movement="UpLeftDown">
-            <do action="keypress" value="Control_L+Shift_L+Tab" />
-        </gesture>
-
-        <gesture name="Next Tab" movement="UpRightDown">
-            <do action="keypress" value="Control_L+Tab" />
-        </gesture>
-
-
-
-    </context>
-
-
-    <!--
-     Context: All applications. This context need to be the last one in this file.
-    -->
-
-    <context name="Chrome" windowclass="Google-chrome" windowtitle=".*">
-
-      <!-- Window control -->
-
-        <gesture name="Close tab (Ctrl+F4)" movement="RightDown">
-		<do action="keypress" value="Control_L+F4" />
-        </gesture>
 
     </context>
 
