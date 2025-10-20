@@ -10,7 +10,7 @@ Installing from source:
 -----------------------
 
     sudo apt install pkg-config autoconf libtool libx11-dev libxrender-dev libxtst-dev libxml2-dev git make
-    git clone https://github.com/deters/mygestures.git
+    git clone git@github.com:kjaxdev/mygestures_modded.git
     cd mygestures/
     sh autogen.sh
     ./configure
