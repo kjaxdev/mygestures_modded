@@ -93,6 +93,15 @@
         </gesture>
 
    
+        <gesture name="Maximize window" movement="Up">
+            <do action="toggle-maximized"/> <!-- you can use the "maximize" action too -->
+        </gesture>
+
+        <gesture name="Iconify window" movement="Down">
+            <do action="iconify" />
+        </gesture>
+
+   
 
 
     </context>
